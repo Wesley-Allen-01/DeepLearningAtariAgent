@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, deque
 import random
 
 transition = namedtuple('transition', ['state', 'action', 'next_state', 'reward'])
@@ -6,13 +6,11 @@ transition = namedtuple('transition', ['state', 'action', 'next_state', 'reward'
 class Experience_Replay:
     def __init__(self, capacity):
         self.capacity = capacity
-        self.buffer = []
+        self.buffer = deque(maxlen=capacity) # deque is a double-ended queue, which allows us to add and remove elements from both ends
 
     def push(self, state, action, next_state, reward):
         # check if buffer hit capacity, if yes, remove oldest experience, then add
         # if no, just add 
-        if len(self.buffer) >= self.capacity:
-            self.buffer.pop(0)
         self.buffer.append(transition(state, action, next_state, reward))
 
     def sample(self, batch_size):
