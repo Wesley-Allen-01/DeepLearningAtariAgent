@@ -1,10 +1,11 @@
 import gymnasium as gym
 import numpy as np
 import ale_py
+from utils.preprocessing import make_env
 
 # good for initial viz, but need to change render_mode eventually to 
 # accelerate training
-env = gym.make("ALE/Breakout-v5", render_mode="human")
+env = gym.make("ALE/Breakout-v5", render_mode="human", frameskip=4)
 
 observation, info = env.reset()
 
