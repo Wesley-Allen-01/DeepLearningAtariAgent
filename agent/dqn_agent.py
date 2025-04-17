@@ -9,7 +9,7 @@ import yaml
 import random
 class DQNAgent:
     def __init__(self, config, env):
-        # initalize target and policy nets
+        # set proper device for training
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         elif torch.backends.mps.is_available():
@@ -19,6 +19,8 @@ class DQNAgent:
         
         input_shape = (4, 84, 84)
         self.num_actions = env.action_space.n
+        
+        # iniitalize nets
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
         self.target_net = DQN(input_shape, self.num_actions).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -49,15 +51,19 @@ class DQNAgent:
         
         
     def get_epsilon(self):
+        """ 
+        sets epsilon value for epsilon greedy selection
+        which is function of steps_done
+        """
         epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
             np.exp(-1. * self.steps_done / self.epsilon_frame)
         return epsilon
     
     def select_action(self, state):
-        # should handle epsilon greedy here
         self.epsilon = self.get_epsilon()
         self.steps_done += 1
         
+        # epsilon greedy
         val = random.random()
         if val < self.epsilon:
             action = random.randrange(self.num_actions)
@@ -71,12 +77,23 @@ class DQNAgent:
 
         
     def optimize_model(self):
-        # sample batch from experience_replay, eval states using policy, eval next_states using target, 
-        # use loss func provided in paper to compute loss, perform grad descent on policy net, update 
-        # target net every n steps
+
         if len(self.memory) < self.batch_size:
+            # not enough samples in memory to sample batch
             return
         transitions = self.memory.sample(self.batch_size)
+        
+        """ 
+        so the sample function returns a list of transtions, 
+        zip(*transtions) converts the list of namedtuples into a 2d list
+        where each val represents a set of states, a set of actions, etc.
+        then we use the * operator to unpack the list of tuples into
+        separate lists, which we can then use to create a batch of
+        transitions. batch is a singluar namedtuple where each field
+        (state, action, etc) is a list of the corresponding values
+        for each transition in the batch. basically the goal is to have a tensor
+        to represent all of the states, a tensor to represent all of the actions, etc.
+        """
         batch = Transition(*zip(*transitions))
         
         state_batch = torch.tensor(np.array(batch.state), device=self.device)
@@ -84,6 +101,14 @@ class DQNAgent:
         reward_batch = torch.tensor(np.array(batch.reward), device=self.device).unsqueeze(1)
         next_state_batch = torch.tensor(np.array(batch.next_state), device=self.device)
         
+        """
+        We say that a q-value of an action is defined recursively as the
+        reward received after taking the action plus the max q-value of the
+        next state, discounted by a factor gamma. Thus, our loss function is the mse
+        between the q-value computed with the policy net and the expected q-value which
+        is the reward of the action plus the max q-value of the next state which we calculate 
+        with the target net. 
+        """
         curr_q_vals = self.policy_net(state_batch).gather(1, action_batch)
         
         with torch.no_grad():
@@ -96,5 +121,12 @@ class DQNAgent:
         loss.backward()
         self.optimizer.step()
         
+        """ 
+        The reason we have two nets is because we want to have a stable target
+        for our q-values. If we only had one net, then the target would be changing
+        every time we updated the weights of the net which would cause the q-values
+        to oscillate and not converge to the optimal values. We update the policy net every 
+        training step, but only update the target net every 10000 steps.
+        """
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
