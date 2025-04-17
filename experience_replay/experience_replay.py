@@ -1,7 +1,7 @@
 from collections import namedtuple, deque
 import random
 
-Transition = namedtuple('transition', ['state', 'action', 'next_state', 'reward'])
+Transition = namedtuple('transition', ['state', 'action', 'next_state', 'reward', 'done'])
 
 class Experience_Replay:
     def __init__(self, capacity):

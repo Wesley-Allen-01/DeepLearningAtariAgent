@@ -18,7 +18,6 @@ class DQNAgent:
             self.device = torch.device("cpu")
         
         input_shape = (4, 84, 84)
-        self.num_actions = env.action_space.n
         
         # iniitalize nets
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
@@ -100,6 +99,7 @@ class DQNAgent:
         action_batch = torch.tensor(np.array(batch.action), device=self.device).unsqueeze(1)
         reward_batch = torch.tensor(np.array(batch.reward), device=self.device).unsqueeze(1)
         next_state_batch = torch.tensor(np.array(batch.next_state), device=self.device)
+        done_batch = torch.tensor(np.array(batch.done), device=self.device).unsqueeze(1)
         
         """
         We say that a q-value of an action is defined recursively as the
@@ -110,15 +110,17 @@ class DQNAgent:
         with the target net. 
         """
         curr_q_vals = self.policy_net(state_batch).gather(1, action_batch)
+
         
         with torch.no_grad():
             next_q_vals = self.target_net(next_state_batch).max(1)[0].unsqueeze(1)
-            expected_q_vals = (reward_batch + (self.gamma * next_q_vals))
+            expected_q_vals = reward_batch + (1 - done_batch) * self.gamma * next_q_vals
             
         loss_fn = nn.MSELoss()
-        loss = loss_fn(curr_q_vals, expected_q_vals)
+        loss = F.mse_loss(curr_q_vals, expected_q_vals)
         self.optimizer.zero_grad()
         loss.backward()
+
         self.optimizer.step()
         
         """ 
