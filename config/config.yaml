@@ -1,1 +1,23 @@
 # will store training hyper params and 
+env:
+  name: ALE/Breakout-v5
+  frame_skip: 1
+
+agent:
+  gamma: 0.99
+  epsilon_start: 1.0
+  epsilon_end: 0.1
+  epsilon_frame: 1000000
+  learning_rate: 0.00025
+  target_update_freq: 10000
+  memory_capacity: 1000000
+  batch_size: 32
+  alpha: 0.95
+  eps: 0.01
+  momentum: 0.95
+
+training:
+  num_episodes: 1000
+  update_freq: 4
+  save_model_freq: 1000
+
