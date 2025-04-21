@@ -1,0 +1,8 @@
+# -------- core -----------
+torch>=2.2,<2.3          # CPU, MPS, or CUDA wheel picked automatically
+gymnasium[atari,accept-rom-license]==0.29.1
+ale-py==0.8.1
+numpy>=1.24
+opencv-python>=4.8
+PyYAML>=6.0
+tqdm>=4.66

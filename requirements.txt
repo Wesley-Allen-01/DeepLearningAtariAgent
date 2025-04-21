@@ -1,4 +1,4 @@
-ale-py==0.10.2
+ale-py==0.10.1
 anyio==4.9.0
 appnope==0.1.4
 argon2-cffi==23.1.0
