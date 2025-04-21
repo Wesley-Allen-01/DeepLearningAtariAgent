@@ -1,6 +1,6 @@
 # will put class for deep q network here
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 
 class DQN(nn.Module):
     def __init__(self, input_shape, num_actions):

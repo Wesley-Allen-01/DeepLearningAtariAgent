@@ -9,7 +9,7 @@ import numpy as np
 import yaml
 import random
 class DQNAgent:
-    def __init__(self, config, env):
+    def __init__(self, config):
         # set proper device for training
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -21,21 +21,14 @@ class DQNAgent:
         input_shape = (4, 84, 84)
         
         # iniitalize nets
-        self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
-        self.target_net = DQN(input_shape, self.num_actions).to(self.device)
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.target_net.eval()
+
         
         lr = config['agent']['learning_rate']
         alpha = config['agent']['alpha']
         eps = config['agent']['eps']
         momentum = config['agent']['momentum']
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), 
-                                       lr=lr, 
-                                       alpha=alpha, 
-                                       eps=eps, 
-                                       momentum=momentum)
-        memory_size = config['agent']['replay_capacity']
+        
+        memory_size = config['agent']['memory_capacity']
         self.memory = Experience_Replay(memory_size)
         
         self.steps_done = 0
@@ -47,6 +40,17 @@ class DQNAgent:
         self.target_update_freq = config['agent']['target_update_freq']
         self.epsilon = self.epsilon_start
         self.num_actions = config['agent']['num_actions']
+        
+        self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
+        self.target_net = DQN(input_shape, self.num_actions).to(self.device)
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()
+        
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), 
+                                       lr=lr, 
+                                       alpha=alpha, 
+                                       eps=eps, 
+                                       momentum=momentum)
         
         
         
@@ -69,7 +73,7 @@ class DQNAgent:
             action = random.randrange(self.num_actions)
         else:
             with torch.no_grad():
-                state = torch.tensor(state, device=self.device).unsqueeze(0)
+                state = torch.tensor(state, device=self.device, dtype=torch.float32).unsqueeze(0).div(255)
                 q_values = self.policy_net(state)
                 action = q_values.argmax(dim=1).item()
         
@@ -96,11 +100,11 @@ class DQNAgent:
         """
         batch = Transition(*zip(*transitions))
         
-        state_batch = torch.tensor(np.array(batch.state), device=self.device)
-        action_batch = torch.tensor(np.array(batch.action), device=self.device).unsqueeze(1)
-        reward_batch = torch.tensor(np.array(batch.reward), device=self.device).unsqueeze(1)
-        next_state_batch = torch.tensor(np.array(batch.next_state), device=self.device)
-        done_batch = torch.tensor(np.array(batch.done), device=self.device).unsqueeze(1)
+        state_batch = torch.tensor(np.array(batch.state), device=self.device, dtype=torch.float32).div(255.0)
+        action_batch = torch.tensor(np.array(batch.action), device=self.device, dtype=torch.int64).unsqueeze(1)
+        next_state_batch = torch.tensor(np.array(batch.next_state), device=self.device, dtype=torch.float32).div(255.0)
+        reward_batch = torch.tensor(np.array(batch.reward), device=self.device, dtype=torch.float32).unsqueeze(1)
+        done_batch = torch.tensor(np.array(batch.done), device=self.device, dtype=torch.bool).unsqueeze(1)
         
         """
         We say that a q-value of an action is defined recursively as the
@@ -115,9 +119,8 @@ class DQNAgent:
         
         with torch.no_grad():
             next_q_vals = self.target_net(next_state_batch).max(1)[0].unsqueeze(1)
-            expected_q_vals = reward_batch + (1 - done_batch) * self.gamma * next_q_vals
+            expected_q_vals = reward_batch + (1 - done_batch.float()) * self.gamma * next_q_vals
             
-        loss_fn = nn.MSELoss()
         loss = F.mse_loss(curr_q_vals, expected_q_vals)
         self.optimizer.zero_grad()
         loss.backward()

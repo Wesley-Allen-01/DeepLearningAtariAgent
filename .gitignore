@@ -3,3 +3,6 @@ venv/
 .DS_Store
 
 playground.ipynb
+
+__pycache__/
+

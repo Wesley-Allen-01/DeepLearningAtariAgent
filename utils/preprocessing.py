@@ -72,7 +72,7 @@ class FrameStack(gym.Wrapper):
         
 
 def make_env(env_name, frame_stack=4):
-    env = gym.make(env_name, frameskip=4)
+    env = gym.make(env_name, frameskip=1)
     env = MaxAndSkipEnv(env)
     env = PreprocessFrame(env)
     env = FrameStack(env, frame_stack)
