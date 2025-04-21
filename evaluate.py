@@ -1,6 +1,6 @@
 # some code to evaluate the model when its done training
 import torch
-import numy as np
+import numpy as np
 
 def evaluate(agent, env, num_episodes=100, render=False):
     ### evaluates agent without learning (greedy policy epsilon=0)
