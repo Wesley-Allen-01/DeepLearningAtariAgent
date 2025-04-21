@@ -54,9 +54,9 @@ class DQNAgent:
         sets epsilon value for epsilon greedy selection
         which is function of steps_done
         """
-        epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
-            np.exp(-1. * self.steps_done / self.epsilon_frame)
-        return epsilon
+        slope = (self.epsilon_start - self.epsilon_end) / self.epsilon_frame
+        epsilon = self.epsilon_start - slope * self.steps_done
+        return max(self.epsilon_end, epsilon)
     
     def select_action(self, state):
         self.epsilon = self.get_epsilon()
