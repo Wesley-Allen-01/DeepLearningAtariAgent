@@ -5,10 +5,9 @@ from utils.preprocessing import make_env
 from train import train
 from agent.dqn_agent import DQNAgent
 import yaml
+import matplotlib.pyplot as plt
+import pandas as pd
 
-# good for initial viz, but need to change render_mode eventually to 
-# accelerate training
-env = gym.make("ALE/Breakout-v5", render_mode="human", frameskip=1)
 
 env = make_env("ALE/Breakout-v5")
 
@@ -17,19 +16,23 @@ with open("config/config.yaml", "r") as f:
 
 agent = DQNAgent(config)
 
-train(env, agent, episodes=10)
+rewards = train(env, agent, episodes=10)
+try:
+    rewards_so_far = pd.read_csv("rewards/rewards.csv")
+except pd.errors.EmptyDataError:
+    rewards_so_far = pd.DataFrame(columns=["reward"])
+
+rewards = pd.DataFrame(rewards, columns=["reward"])
+rewards = pd.concat([rewards_so_far, rewards], ignore_index=True)
+
+rewards.to_csv("rewards/rewards.csv", index=False)
 
 
-# observation, info = env.reset()
-
-# episode_over = False
-# while not episode_over:
-    
-#     # currently uses random selection to choose action, eventually we 
-#     # will replace this with a calculation with our agent
-#     action = env.action_space.sample()
-#     observation, reward, terminated, truncated, info, = env.step(action)
-#     episode_over = terminated or truncated
-    
-# env.close() 
-    
+print("Training Completed")
+print(f"Model trained for {agent.steps_done} steps")
+print("Rewards saved to rewards/rewards.csv")
+plt.plot(rewards)
+plt.title("Training Rewards")
+plt.xlabel("Episode")
+plt.ylabel("Reward")
+plt.show()
