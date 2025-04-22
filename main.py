@@ -16,7 +16,7 @@ with open("config/config.yaml", "r") as f:
 
 agent = DQNAgent(config)
 
-rewards = train(env, agent, episodes=10)
+rewards = train(env, agent, episodes=8000)
 try:
     rewards_so_far = pd.read_csv("rewards/rewards.csv")
 except pd.errors.EmptyDataError:

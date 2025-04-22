@@ -11,8 +11,6 @@ def train(env, agent, episodes, verbose=False):
     
     try:
         for episode in tqdm(range(episodes)):
-            if episode+1 % 1000 == 0:
-                agent.save_model(episode)
             observation, info = env.reset()
             episode_over = False
             total_reward = 0
@@ -25,7 +23,10 @@ def train(env, agent, episodes, verbose=False):
                 observation = new_state
                 agent.optimize_model()
             rewards.append(total_reward)
-
+            
+            if (episode+1) % 10 == 0:
+                # print("saving model")
+                agent.save_model(episode+1)
             
             if verbose and episode % 10 == 0:
                 print(f"Episode {episode + 1}/{episodes} - Total Reward: {total_reward}")
