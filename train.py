@@ -24,7 +24,7 @@ def train(env, agent, episodes, verbose=False):
                 agent.optimize_model()
             rewards.append(total_reward)
             
-            if (episode+1) % 10 == 0:
+            if (episode+1) % 1000 == 0:
                 # print("saving model")
                 agent.save_model(episode+1)
             
