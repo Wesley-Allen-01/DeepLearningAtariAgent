@@ -66,7 +66,8 @@ class DQNAgent:
     def select_action(self, state):
         self.epsilon = self.get_epsilon()
         self.steps_done += 1
-        
+        # if self.steps_done % 1000 == 0:
+        #     print(f"steps done: {self.steps_done}, epsilon: {self.epsilon}")
         # epsilon greedy
         val = random.random()
         if val < self.epsilon:
@@ -100,11 +101,11 @@ class DQNAgent:
         """
         batch = Transition(*zip(*transitions))
         
-        state_batch = torch.tensor(np.array(batch.state), device=self.device, dtype=torch.float32).div(255.0)
-        action_batch = torch.tensor(np.array(batch.action), device=self.device, dtype=torch.int64).unsqueeze(1)
-        next_state_batch = torch.tensor(np.array(batch.next_state), device=self.device, dtype=torch.float32).div(255.0)
-        reward_batch = torch.tensor(np.array(batch.reward), device=self.device, dtype=torch.float32).unsqueeze(1)
-        done_batch = torch.tensor(np.array(batch.done), device=self.device, dtype=torch.bool).unsqueeze(1)
+        state_batch = torch.as_tensor(np.array(batch.state), device=self.device, dtype=torch.float32).div(255.0)
+        action_batch = torch.as_tensor(np.array(batch.action), device=self.device, dtype=torch.int64).unsqueeze(1)
+        next_state_batch = torch.as_tensor(np.array(batch.next_state), device=self.device, dtype=torch.float32).div(255.0)
+        reward_batch = torch.as_tensor(np.array(batch.reward), device=self.device, dtype=torch.float32).unsqueeze(1)
+        done_batch = torch.as_tensor(np.array(batch.done), device=self.device, dtype=torch.bool).unsqueeze(1)
         
         """
         We say that a q-value of an action is defined recursively as the
@@ -136,3 +137,6 @@ class DQNAgent:
         """
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
+            
+    def save_model(self, episodes):
+        torch.save(self.policy_net.state_dict(), f"saved_models/model_{episodes}.pth")
