@@ -70,11 +70,33 @@ class FrameStack(gym.Wrapper):
     def _get_obs(self):
         return np.stack(self.frames, axis=0)
         
+class LifeLossPenaltyWrapper(gym.Wrapper):
+    def __init__(self, env, life_loss_penalty=1.0):
+        super().__init__(env)
+        self._life_loss_penalty = life_loss_penalty
+        self.lives = 0
+        
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.lives = info.get('lives', 0)
+        return obs, info
+    
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        new_lives = info.get('lives', 0)
+        
+        if new_lives < self.lives:
+            reward -= self._life_loss_penalty
+        
+        self.lives = new_lives
+            
+        return obs, reward, terminated, truncated, info
 
 def make_env(env_name, frame_stack=4):
     env = gym.make(env_name, frameskip=1)
     env = MaxAndSkipEnv(env)
     env = PreprocessFrame(env)
+    env = LifeLossPenaltyWrapper(env)
     env = FrameStack(env, frame_stack)
     return env
 
