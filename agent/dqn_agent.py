@@ -23,7 +23,7 @@ class DQNAgent:
         
         # iniitalize nets
 
-        
+
         lr = config['agent']['learning_rate']
         alpha = config['agent']['alpha']
         eps = config['agent']['eps']
@@ -80,7 +80,8 @@ class DQNAgent:
                 state = torch.tensor(state, device=self.device, dtype=torch.float32).unsqueeze(0).div(255)
                 q_values = self.policy_net(state)
                 action = q_values.argmax(dim=1).item()
-        
+                
+                
         return action
 
         
