@@ -6,11 +6,11 @@ import os
 import time
 
 
-def train(env, agent, episodes, verbose=False):
+def train(env, agent, episodes, verbose=False, start=0):
     rewards = []
-    
+    print(f"starting at episode {start}")
     try:
-        for episode in tqdm(range(episodes)):
+        for episode in tqdm(range(start, episodes), initial=start):
             observation, info = env.reset()
             episode_over = False
             total_reward = 0
@@ -26,12 +26,20 @@ def train(env, agent, episodes, verbose=False):
             
             if (episode+1) % 1000 == 0:
                 # print("saving model")
-                agent.save_model(episode+1)
+                agent.checkpoint(episode+1)
             
             if verbose and episode % 10 == 0:
                 print(f"Episode {episode + 1}/{episodes} - Total Reward: {total_reward}")
+            agent.episodes_so_far += 1
     except KeyboardInterrupt:
-        print("Training interrupted.") 
+        agent.checkpoint(episodes)
+        print("Training interrupted, model saved.") 
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print("Saving model before exiting...")
+        agent.checkpoint(episodes)
+        print("Model saved.")
+        raise e
     finally:
         env.close()
         return rewards
