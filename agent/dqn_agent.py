@@ -9,6 +9,7 @@ import numpy as np
 import yaml
 import random
 import os
+import pickle
 class DQNAgent:
     def __init__(self, config):
         # set proper device for training
@@ -41,14 +42,9 @@ class DQNAgent:
         self.target_update_freq = config['agent']['target_update_freq']
         self.epsilon = self.epsilon_start
         self.num_actions = config['agent']['num_actions']
-        self.epsidoes_so_far = 0
+        self.episodes_so_far = 0
         
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
-        self.load_saved_model()
-        self.target_net = DQN(input_shape, self.num_actions).to(self.device)
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.target_net.eval()
-        
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), 
                                        lr=lr, 
                                        alpha=alpha, 
@@ -56,6 +52,10 @@ class DQNAgent:
                                        momentum=momentum)
         
         
+        self.from_checkpoint = self.load_saved_model()
+        self.target_net = DQN(input_shape, self.num_actions).to(self.device)
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()
         
     def get_epsilon(self):
         """ 
@@ -141,25 +141,35 @@ class DQNAgent:
         """
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
-            
-    def save_model(self, episodes):
-        # print("HEY STUPID, I AM SAVING THE MODEL")
-        for file_name in os.listdir("saved_models"):
-            if file_name.endswith(".pth"):
-                episode_num = int(file_name.split("_")[1].split(".")[0])
-                os.remove(os.path.join("saved_models", file_name))
-        # print(f"Deleting all models except for the last one")
-        torch.save(self.policy_net.state_dict(), f"saved_models/model_{episodes+self.epsidoes_so_far}.pth")
-        
+    
+    def checkpoint(self, episodes):
+        torch.save({
+            'step': episodes,
+            'model_state_dict': self.policy_net.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'episodes_so_far': self.episodes_so_far
+        }, f"checkpoints/latest.pth")
+        with open("checkpoints/replay_buffer.pkl", "wb") as f:
+            pickle.dump(self.memory, f)
+    
     def load_saved_model(self):
-        pth_files = [f for f in os.listdir("saved_models") if f.endswith(".pth")]
-        if len(pth_files) == 0:
-            print("No saved models found")
-            return
+        if not os.path.exists("checkpoints/latest.pth"):
+            print("No checkpoint found.")
+            return False
+        
+        checkpoint = torch.load("checkpoints/latest.pth", map_location=self.device)
+        self.policy_net.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.steps_done = checkpoint['step']
+        self.epsidoes_so_far = checkpoint['episodes_so_far']
+        
+        self.epsilon = self.get_epsilon()
+        
+        if not os.path.exists("checkpoints/replay_buffer.pkl"):
+            print("No replay buffer found.")
+            return False
         else:
-            pth_files.sort()
-            latest_model = pth_files[-1]
-            val = latest_model.split("_")[1].split(".")[0]
-            self.epsidoes_so_far = int(val)
-            self.policy_net.load_state_dict(torch.load(f"saved_models/{latest_model}"))
-            print(f"Loaded model {latest_model}")
+            with open("checkpoints/replay_buffer.pkl", "rb") as f:
+                self.memory = pickle.load(f)
+        print(f"Loaded checkpoint at episode {self.epsidoes_so_far}")
+        return True

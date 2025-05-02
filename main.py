@@ -15,8 +15,14 @@ with open("config/config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 agent = DQNAgent(config)
+from_checkpoint = agent.from_checkpoint
+eps = 20000
+if from_checkpoint:
+    print("starting from checkpoint")
+    rewards = train(env, agent, episodes=eps, start=agent.epsidoes_so_far)
+else:
+    rewards = train(env, agent, episodes=eps)
 
-rewards = train(env, agent, episodes=8000)
 try:
     rewards_so_far = pd.read_csv("rewards/rewards.csv")
 except pd.errors.EmptyDataError:
@@ -35,4 +41,5 @@ plt.plot(rewards)
 plt.title("Training Rewards")
 plt.xlabel("Episode")
 plt.ylabel("Reward")
+plt.savefig("rewards/rewards_over_time.png")
 plt.show()
