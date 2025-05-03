@@ -20,6 +20,8 @@ class DQNAgent:
         else:
             self.device = torch.device("cpu")
         
+        print(f"Using device: {self.device}")
+        
         input_shape = (4, 84, 84)
         
         # iniitalize nets
