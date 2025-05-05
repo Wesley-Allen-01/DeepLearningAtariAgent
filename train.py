@@ -24,7 +24,7 @@ def train(env, agent, episodes, verbose=False, start=0):
                 agent.optimize_model()
             rewards.append(total_reward)
             
-            if (episode+1) % 1000 == 0:
+            if (episode+1) % 100 == 0:
                 # print("saving model")
                 with open("training_log.log", "a") as f:
                     f.write(f"[{datetime.now()}] -- Step {episode +1} completed. \n")
