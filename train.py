@@ -1,7 +1,6 @@
 # can just hold our training loop in the form of a function that we can import in our main file
 from agent.dqn_agent import DQNAgent
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 import os
 import time
 
@@ -10,7 +9,7 @@ def train(env, agent, episodes, verbose=False, start=0):
     rewards = []
     print(f"starting at episode {start}")
     try:
-        for episode in tqdm(range(start, episodes), initial=start):
+        for episode in range(start, episodes):
             observation, info = env.reset()
             episode_over = False
             total_reward = 0
