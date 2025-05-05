@@ -3,6 +3,7 @@ from agent.dqn_agent import DQNAgent
 from tqdm import tqdm
 import os
 import time
+from datetime import datetime
 
 
 def train(env, agent, episodes, verbose=False, start=0):
@@ -25,6 +26,8 @@ def train(env, agent, episodes, verbose=False, start=0):
             
             if (episode+1) % 1000 == 0:
                 # print("saving model")
+                with open("training_log.log", "a") as f:
+                    f.write(f"[{datetime.now()}] -- Step {episode +1} completed. \n")
                 agent.checkpoint(episode+1)
             
             if verbose and episode % 10 == 0:
