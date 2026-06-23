@@ -49,11 +49,7 @@ class DQNAgent:
         self.episodes_so_far = 0
         
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), 
-                                       lr=lr, 
-                                       alpha=alpha, 
-                                       eps=eps, 
-                                       momentum=momentum)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
         
         
         self.from_checkpoint = self.load_saved_model()
