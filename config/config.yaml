@@ -19,7 +19,14 @@ agent:
   num_actions: 4
 
 training:
-  num_episodes: 1000
+  num_episodes: 20000
   update_freq: 4
   save_model_freq: 1000
+  # Pickling the ~7GB replay buffer on every checkpoint is slow and disk-heavy.
+  # Leave off for long unattended runs; resume just re-warms the buffer.
+  save_replay_buffer: false
+
+logging:
+  wandb_enabled: true        # live metrics to Weights & Biases (web + phone app)
+  wandb_project: dqn-breakout
 

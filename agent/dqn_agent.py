@@ -46,6 +46,11 @@ class DQNAgent:
         self.epsilon = self.epsilon_start
         self.num_actions = config['agent']['num_actions']
         self.episodes_so_far = 0
+        self.save_replay_buffer = config['training'].get('save_replay_buffer', False)
+
+        # Most-recent training stats, surfaced for logging (None until first update).
+        self.last_loss = None
+        self.last_q = None
         
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
@@ -124,6 +129,10 @@ class DQNAgent:
         loss.backward()
 
         self.optimizer.step()
+
+        # Stash for monitoring (e.g. Weights & Biases) without affecting training.
+        self.last_loss = loss.item()
+        self.last_q = curr_q_vals.mean().item()
         
         """ 
         The reason we have two nets is because we want to have a stable target
@@ -142,8 +151,11 @@ class DQNAgent:
             'optimizer_state_dict': self.optimizer.state_dict(),
             'episodes_so_far': self.episodes_so_far
         }, f"checkpoints/latest.pth")
-        with open("checkpoints/replay_buffer.pkl", "wb") as f:
-            pickle.dump(self.memory, f)
+        # The replay buffer is ~7GB; only persist it when explicitly enabled.
+        # Without it, a resumed run simply re-warms the buffer before learning.
+        if self.save_replay_buffer:
+            with open("checkpoints/replay_buffer.pkl", "wb") as f:
+                pickle.dump(self.memory, f)
     
     def load_saved_model(self):
         if not os.path.exists("checkpoints/latest.pth"):
@@ -154,15 +166,14 @@ class DQNAgent:
         self.policy_net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.steps_done = checkpoint['step']
-        self.epsidoes_so_far = checkpoint['episodes_so_far']
-        
+        self.episodes_so_far = checkpoint['episodes_so_far']
+
         self.epsilon = self.get_epsilon()
-        
-        if not os.path.exists("checkpoints/replay_buffer.pkl"):
-            print("No replay buffer found.")
-            return False
-        else:
+
+        if os.path.exists("checkpoints/replay_buffer.pkl"):
             with open("checkpoints/replay_buffer.pkl", "rb") as f:
                 self.memory = pickle.load(f)
-        print(f"Loaded checkpoint at episode {self.epsidoes_so_far}")
+        else:
+            print("No replay buffer found; will re-warm before learning.")
+        print(f"Loaded checkpoint at episode {self.episodes_so_far}")
         return True
