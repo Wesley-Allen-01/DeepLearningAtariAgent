@@ -7,7 +7,7 @@ agent:
   gamma: 0.99
   epsilon_start: 1.0
   epsilon_end: 0.1
-  epsilon_frame: 1000000
+  epsilon_frame: 250000  # in agent-steps; ~1M game frames at skip=4 (matches DeepMind Nature paper)
   learning_rate: 0.00025
   target_update_freq: 10000
   memory_capacity: 1000000
