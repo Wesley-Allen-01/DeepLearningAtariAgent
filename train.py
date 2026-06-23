@@ -21,7 +21,8 @@ def train(env, agent, episodes, verbose=False, start=0):
                 episode_over = terminated or truncated
                 agent.memory.push(observation, action, new_state, reward, episode_over)
                 observation = new_state
-                agent.optimize_model()
+                if agent.steps_done % agent.update_freq == 0:
+                    agent.optimize_model()
             rewards.append(total_reward)
             
             if (episode+1) % 100 == 0:
