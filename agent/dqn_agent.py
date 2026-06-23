@@ -90,26 +90,19 @@ class DQNAgent:
         if len(self.memory) < self.replay_start_size:
             # warm-up: collect enough random experience before any gradient updates
             return
-        transitions = self.memory.sample(self.batch_size)
-        
-        """ 
-        so the sample function returns a list of transtions, 
-        zip(*transtions) converts the list of namedtuples into a 2d list
-        where each val represents a set of states, a set of actions, etc.
-        then we use the * operator to unpack the list of tuples into
-        separate lists, which we can then use to create a batch of
-        transitions. batch is a singluar namedtuple where each field
-        (state, action, etc) is a list of the corresponding values
-        for each transition in the batch. basically the goal is to have a tensor
-        to represent all of the states, a tensor to represent all of the actions, etc.
+        batch = self.memory.sample(self.batch_size)
+
         """
-        batch = Transition(*zip(*transitions))
-        
-        state_batch = torch.as_tensor(np.array(batch.state), device=self.device, dtype=torch.float32).div(255.0)
-        action_batch = torch.as_tensor(np.array(batch.action), device=self.device, dtype=torch.int64).unsqueeze(1)
-        next_state_batch = torch.as_tensor(np.array(batch.next_state), device=self.device, dtype=torch.float32).div(255.0)
-        reward_batch = torch.as_tensor(np.array(batch.reward), device=self.device, dtype=torch.float32).unsqueeze(1)
-        done_batch = torch.as_tensor(np.array(batch.done), device=self.device, dtype=torch.bool).unsqueeze(1)
+        The frame-based buffer's sample() returns a Batch of already-batched
+        numpy arrays (state/next_state are (B, 4, 84, 84) uint8 stacks
+        reconstructed on the fly; action/reward/done are (B,)). We just convert
+        them to float tensors on-device, dividing the image stacks by 255.
+        """
+        state_batch = torch.as_tensor(batch.state, device=self.device, dtype=torch.float32).div(255.0)
+        action_batch = torch.as_tensor(batch.action, device=self.device, dtype=torch.int64).unsqueeze(1)
+        next_state_batch = torch.as_tensor(batch.next_state, device=self.device, dtype=torch.float32).div(255.0)
+        reward_batch = torch.as_tensor(batch.reward, device=self.device, dtype=torch.float32).unsqueeze(1)
+        done_batch = torch.as_tensor(batch.done, device=self.device, dtype=torch.bool).unsqueeze(1)
         
         """
         We say that a q-value of an action is defined recursively as the
