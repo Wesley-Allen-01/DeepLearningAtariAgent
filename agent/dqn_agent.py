@@ -42,6 +42,7 @@ class DQNAgent:
         self.epsilon_end = config['agent']['epsilon_end']
         self.epsilon_frame = config['agent']['epsilon_frame']
         self.target_update_freq = config['agent']['target_update_freq']
+        self.update_freq = config['training']['update_freq']
         self.epsilon = self.epsilon_start
         self.num_actions = config['agent']['num_actions']
         self.episodes_so_far = 0
