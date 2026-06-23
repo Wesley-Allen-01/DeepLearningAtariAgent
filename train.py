@@ -1,12 +1,10 @@
 # can just hold our training loop in the form of a function that we can import in our main file
-from agent.dqn_agent import DQNAgent
-from tqdm import tqdm
-import os
-import time
 from datetime import datetime
 
 
-def train(env, agent, episodes, verbose=False, start=0):
+def train(env, agent, episodes, verbose=False, start=0, use_wandb=False):
+    if use_wandb:
+        import wandb
     rewards = []
     print(f"starting at episode {start}")
     try:
@@ -32,25 +30,38 @@ def train(env, agent, episodes, verbose=False, start=0):
                 if agent.steps_done % agent.update_freq == 0:
                     agent.optimize_model()
             rewards.append(total_reward)
-            
+            agent.episodes_so_far = episode + 1  # count of fully-completed episodes
+
+            if use_wandb:
+                metrics = {
+                    "episode": episode + 1,
+                    "score": total_reward,                      # true (unclipped) game score
+                    "score_mean_100": sum(rewards[-100:]) / len(rewards[-100:]),
+                    "epsilon": agent.epsilon,
+                    "steps_done": agent.steps_done,
+                }
+                if agent.last_loss is not None:
+                    metrics["loss"] = agent.last_loss
+                    metrics["avg_q"] = agent.last_q
+                wandb.log(metrics, step=agent.steps_done)
+
             if (episode+1) % 100 == 0:
                 # print("saving model")
                 with open("training_log.log", "a") as f:
-                    f.write(f"[{datetime.now()}] -- Step {episode +1} completed. \n")
-                agent.checkpoint(episode+1)
-            
+                    f.write(f"[{datetime.now()}] -- Episode {episode +1} completed. \n")
+                agent.checkpoint()
+
             if verbose and episode % 10 == 0:
                 print(f"Episode {episode + 1}/{episodes} - Total Reward: {total_reward}")
-            agent.episodes_so_far += 1
     except KeyboardInterrupt:
-        agent.checkpoint(episodes)
-        print("Training interrupted, model saved.") 
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        print("Saving model before exiting...")
-        agent.checkpoint(episodes)
-        print("Model saved.")
-        raise e
+        agent.checkpoint()
+        print("Training interrupted, model saved.")
+    except Exception:
+        # Save progress, then re-raise so a crash is never silently reported as a
+        # successful run (a bare `return` in `finally` would swallow the error).
+        agent.checkpoint()
+        print("Error during training, model saved. Re-raising.")
+        raise
     finally:
         env.close()
-        return rewards
+    return rewards

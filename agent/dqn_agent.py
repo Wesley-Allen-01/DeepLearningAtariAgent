@@ -1,11 +1,8 @@
 from models.dqn import DQN
 from experience_replay.experience_replay import Experience_Replay
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import numpy as np
-import yaml
 import random
 import os
 import pickle
@@ -27,10 +24,7 @@ class DQNAgent:
 
 
         lr = config['agent']['learning_rate']
-        alpha = config['agent']['alpha']
-        eps = config['agent']['eps']
-        momentum = config['agent']['momentum']
-        
+
         memory_size = config['agent']['memory_capacity']
         self.memory = Experience_Replay(memory_size)
         
@@ -46,6 +40,14 @@ class DQNAgent:
         self.epsilon = self.epsilon_start
         self.num_actions = config['agent']['num_actions']
         self.episodes_so_far = 0
+        self.save_replay_buffer = config['training'].get('save_replay_buffer', False)
+
+        # Most-recent training stats, surfaced for logging (None until first update).
+        self.last_loss = None
+        self.last_q = None
+
+        # W&B run id, persisted in checkpoints so a resume continues the same run.
+        self.wandb_run_id = None
         
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
@@ -124,6 +126,10 @@ class DQNAgent:
         loss.backward()
 
         self.optimizer.step()
+
+        # Stash for monitoring (e.g. Weights & Biases) without affecting training.
+        self.last_loss = loss.item()
+        self.last_q = curr_q_vals.mean().item()
         
         """ 
         The reason we have two nets is because we want to have a stable target
@@ -135,15 +141,24 @@ class DQNAgent:
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
     
-    def checkpoint(self, episodes):
+    def checkpoint(self):
+        os.makedirs("checkpoints", exist_ok=True)
+        # Write to a temp file then atomically rename, so a process killed
+        # mid-write (e.g. a reclaimed spot instance) can't corrupt latest.pth.
+        tmp_path = "checkpoints/latest.pth.tmp"
         torch.save({
-            'step': episodes,
+            'steps_done': self.steps_done,
+            'episodes_so_far': self.episodes_so_far,
             'model_state_dict': self.policy_net.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'episodes_so_far': self.episodes_so_far
-        }, f"checkpoints/latest.pth")
-        with open("checkpoints/replay_buffer.pkl", "wb") as f:
-            pickle.dump(self.memory, f)
+            'wandb_run_id': self.wandb_run_id,
+        }, tmp_path)
+        os.replace(tmp_path, "checkpoints/latest.pth")
+        # The replay buffer is ~7GB; only persist it when explicitly enabled.
+        # Without it, a resumed run simply re-warms the buffer before learning.
+        if self.save_replay_buffer:
+            with open("checkpoints/replay_buffer.pkl", "wb") as f:
+                pickle.dump(self.memory, f)
     
     def load_saved_model(self):
         if not os.path.exists("checkpoints/latest.pth"):
@@ -153,16 +168,16 @@ class DQNAgent:
         checkpoint = torch.load("checkpoints/latest.pth", map_location=self.device)
         self.policy_net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.steps_done = checkpoint['step']
-        self.epsidoes_so_far = checkpoint['episodes_so_far']
-        
+        self.steps_done = checkpoint['steps_done']
+        self.episodes_so_far = checkpoint['episodes_so_far']
+        self.wandb_run_id = checkpoint.get('wandb_run_id')
+
         self.epsilon = self.get_epsilon()
-        
-        if not os.path.exists("checkpoints/replay_buffer.pkl"):
-            print("No replay buffer found.")
-            return False
-        else:
+
+        if os.path.exists("checkpoints/replay_buffer.pkl"):
             with open("checkpoints/replay_buffer.pkl", "rb") as f:
                 self.memory = pickle.load(f)
-        print(f"Loaded checkpoint at episode {self.epsidoes_so_far}")
+        else:
+            print("No replay buffer found; will re-warm before learning.")
+        print(f"Loaded checkpoint at episode {self.episodes_so_far}")
         return True

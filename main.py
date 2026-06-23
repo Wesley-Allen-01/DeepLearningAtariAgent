@@ -1,10 +1,9 @@
-import gymnasium as gym
-import numpy as np
-import ale_py
 from utils.preprocessing import make_env
 from train import train
 from agent.dqn_agent import DQNAgent
 import yaml
+import matplotlib
+matplotlib.use("Agg")  # headless: no display on a training server
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -14,14 +13,29 @@ env = make_env("ALE/Breakout-v5")
 with open("config/config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
+use_wandb = config.get("logging", {}).get("wandb_enabled", False)
+
+# Create the agent first so it loads any checkpoint (and its saved wandb_run_id)
+# before we init W&B — that lets a resume continue the same W&B run.
 agent = DQNAgent(config)
 from_checkpoint = agent.from_checkpoint
-eps = 20000
+
+if use_wandb:
+    import wandb
+    wandb.init(
+        project=config["logging"]["wandb_project"],
+        id=agent.wandb_run_id,
+        resume="allow",
+        config=config,
+    )
+    agent.wandb_run_id = wandb.run.id  # persist so future checkpoints can resume it
+
+eps = config["training"]["num_episodes"]
 if from_checkpoint:
     print("starting from checkpoint")
-    rewards = train(env, agent, episodes=eps, start=agent.epsidoes_so_far)
+    rewards = train(env, agent, episodes=eps, start=agent.episodes_so_far, use_wandb=use_wandb)
 else:
-    rewards = train(env, agent, episodes=eps)
+    rewards = train(env, agent, episodes=eps, use_wandb=use_wandb)
 
 try:
     rewards_so_far = pd.read_csv("rewards/rewards.csv")
@@ -42,4 +56,3 @@ plt.title("Training Rewards")
 plt.xlabel("Episode")
 plt.ylabel("Reward")
 plt.savefig("rewards/rewards_over_time.png")
-plt.show()
