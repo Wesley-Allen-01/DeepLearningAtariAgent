@@ -123,7 +123,8 @@ class DQNAgent:
 
         
         with torch.no_grad():
-            next_q_vals = self.target_net(next_state_batch).max(1)[0].unsqueeze(1)
+            next_actions = self.policy_net(next_state_batch).argmax(1, keepdim=True)
+            next_q_vals = self.target_net(next_state_batch).gather(1, next_actions)
             expected_q_vals = reward_batch + (1 - done_batch.float()) * self.gamma * next_q_vals
             
         loss = F.smooth_l1_loss(curr_q_vals, expected_q_vals)
