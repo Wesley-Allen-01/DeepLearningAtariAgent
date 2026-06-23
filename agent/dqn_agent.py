@@ -128,7 +128,7 @@ class DQNAgent:
             next_q_vals = self.target_net(next_state_batch).max(1)[0].unsqueeze(1)
             expected_q_vals = reward_batch + (1 - done_batch.float()) * self.gamma * next_q_vals
             
-        loss = F.mse_loss(curr_q_vals, expected_q_vals)
+        loss = F.smooth_l1_loss(curr_q_vals, expected_q_vals)
         self.optimizer.zero_grad()
         loss.backward()
 
