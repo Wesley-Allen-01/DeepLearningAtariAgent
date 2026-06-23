@@ -1,6 +1,5 @@
 from models.dqn import DQN
 from experience_replay.experience_replay import Experience_Replay
-from experience_replay.experience_replay import Transition
 import torch
 import torch.nn as nn
 import torch.optim as optim

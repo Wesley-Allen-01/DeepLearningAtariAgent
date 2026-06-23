@@ -32,6 +32,9 @@ class MaxAndSkipEnv(gym.Wrapper):
                 truncated = trunc
                 break
         max_frame = np.maximum(self._obs_buffer[0], self._obs_buffer[1])
+        # Expose the unclipped game reward so the training loop can log the true
+        # score (later wrappers apply a life-loss penalty and clip to the sign).
+        info['raw_reward'] = total_reward
         return max_frame, total_reward, terminated, truncated, info
     
     def reset(self, **kwargs):

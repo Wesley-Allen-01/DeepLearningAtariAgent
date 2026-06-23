@@ -1,5 +1,4 @@
 from collections import namedtuple
-import random
 import numpy as np
 
 # Kept for backwards compatibility with anything still importing Transition.
