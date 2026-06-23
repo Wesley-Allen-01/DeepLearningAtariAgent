@@ -37,6 +37,7 @@ class DQNAgent:
         
         self.steps_done = 0
         self.batch_size = config['agent']['batch_size']
+        self.replay_start_size = config['agent']['replay_start_size']
         self.gamma = config['agent']['gamma']
         self.epsilon_start = config['agent']['epsilon_start']
         self.epsilon_end = config['agent']['epsilon_end']
@@ -90,8 +91,8 @@ class DQNAgent:
         
     def optimize_model(self):
 
-        if len(self.memory) < self.batch_size:
-            # not enough samples in memory to sample batch
+        if len(self.memory) < self.replay_start_size:
+            # warm-up: collect enough random experience before any gradient updates
             return
         transitions = self.memory.sample(self.batch_size)
         
