@@ -1,11 +1,8 @@
 from models.dqn import DQN
 from experience_replay.experience_replay import Experience_Replay
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import numpy as np
-import yaml
 import random
 import os
 import pickle
@@ -27,10 +24,7 @@ class DQNAgent:
 
 
         lr = config['agent']['learning_rate']
-        alpha = config['agent']['alpha']
-        eps = config['agent']['eps']
-        momentum = config['agent']['momentum']
-        
+
         memory_size = config['agent']['memory_capacity']
         self.memory = Experience_Replay(memory_size)
         
@@ -51,6 +45,9 @@ class DQNAgent:
         # Most-recent training stats, surfaced for logging (None until first update).
         self.last_loss = None
         self.last_q = None
+
+        # W&B run id, persisted in checkpoints so a resume continues the same run.
+        self.wandb_run_id = None
         
         self.policy_net = DQN(input_shape, self.num_actions).to(self.device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
@@ -144,13 +141,19 @@ class DQNAgent:
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
     
-    def checkpoint(self, episodes):
+    def checkpoint(self):
+        os.makedirs("checkpoints", exist_ok=True)
+        # Write to a temp file then atomically rename, so a process killed
+        # mid-write (e.g. a reclaimed spot instance) can't corrupt latest.pth.
+        tmp_path = "checkpoints/latest.pth.tmp"
         torch.save({
-            'step': episodes,
+            'steps_done': self.steps_done,
+            'episodes_so_far': self.episodes_so_far,
             'model_state_dict': self.policy_net.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'episodes_so_far': self.episodes_so_far
-        }, f"checkpoints/latest.pth")
+            'wandb_run_id': self.wandb_run_id,
+        }, tmp_path)
+        os.replace(tmp_path, "checkpoints/latest.pth")
         # The replay buffer is ~7GB; only persist it when explicitly enabled.
         # Without it, a resumed run simply re-warms the buffer before learning.
         if self.save_replay_buffer:
@@ -165,8 +168,9 @@ class DQNAgent:
         checkpoint = torch.load("checkpoints/latest.pth", map_location=self.device)
         self.policy_net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.steps_done = checkpoint['step']
+        self.steps_done = checkpoint['steps_done']
         self.episodes_so_far = checkpoint['episodes_so_far']
+        self.wandb_run_id = checkpoint.get('wandb_run_id')
 
         self.epsilon = self.get_epsilon()
 

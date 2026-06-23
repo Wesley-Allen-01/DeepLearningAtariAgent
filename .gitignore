@@ -1,8 +1,15 @@
 venv/
+.venv/
 
 .DS_Store
 
 playground.ipynb
 
 __pycache__/
+
+# training run artifacts
+checkpoints/
+wandb/
+*.pth
+rewards/*.png
 

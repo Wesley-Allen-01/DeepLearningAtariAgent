@@ -1,6 +1,3 @@
-import gymnasium as gym
-import numpy as np
-import ale_py
 from utils.preprocessing import make_env
 from train import train
 from agent.dqn_agent import DQNAgent
@@ -17,12 +14,22 @@ with open("config/config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 use_wandb = config.get("logging", {}).get("wandb_enabled", False)
-if use_wandb:
-    import wandb
-    wandb.init(project=config["logging"]["wandb_project"], config=config)
 
+# Create the agent first so it loads any checkpoint (and its saved wandb_run_id)
+# before we init W&B — that lets a resume continue the same W&B run.
 agent = DQNAgent(config)
 from_checkpoint = agent.from_checkpoint
+
+if use_wandb:
+    import wandb
+    wandb.init(
+        project=config["logging"]["wandb_project"],
+        id=agent.wandb_run_id,
+        resume="allow",
+        config=config,
+    )
+    agent.wandb_run_id = wandb.run.id  # persist so future checkpoints can resume it
+
 eps = config["training"]["num_episodes"]
 if from_checkpoint:
     print("starting from checkpoint")

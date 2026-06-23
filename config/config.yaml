@@ -13,9 +13,6 @@ agent:
   memory_capacity: 1000000
   batch_size: 32
   replay_start_size: 50000  # number of transitions to collect before any gradient updates
-  alpha: 0.95
-  eps: 0.01
-  momentum: 0.95
   num_actions: 4
 
 training:

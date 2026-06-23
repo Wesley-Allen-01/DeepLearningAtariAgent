@@ -1,10 +1,14 @@
 import gymnasium as gym
 from gymnasium import ObservationWrapper
 import numpy as np
-import ale_py
 from gymnasium.spaces import Box
 import cv2
+import ale_py
 from collections import deque
+
+# Register the ALE/* environments with gymnasium. This also keeps the ale_py
+# import "used" so the linter won't strip it (it's a side-effect import).
+gym.register_envs(ale_py)
 
 # logic for preprocessing frames using methods outlined in paper
 # im pretty sure they convert each frame to gray scale, and reduce dimensions to 84x84, and then frame stacking
