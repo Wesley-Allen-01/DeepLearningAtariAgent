@@ -32,11 +32,33 @@ class MaxAndSkipEnv(gym.Wrapper):
                 truncated = trunc
                 break
         max_frame = np.maximum(self._obs_buffer[0], self._obs_buffer[1])
+        # Expose the unclipped game reward so the training loop can log the true
+        # score (later wrappers apply a life-loss penalty and clip to the sign).
+        info['raw_reward'] = total_reward
         return max_frame, total_reward, terminated, truncated, info
     
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
         self._obs_buffer[:] = 0
+        return obs, info
+
+
+
+class FireResetEnv(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        # breakout needs the FIRE action to launch the ball, so fire on reset
+        # FIRE is action index 1 in the standard ALE action set
+        assert env.unwrapped.get_action_meanings()[1] == 'FIRE'
+        assert len(env.unwrapped.get_action_meanings()) >= 3
+
+    def reset(self, **kwargs):
+        self.env.reset(**kwargs)
+        # take the FIRE action to launch the ball
+        obs, _, terminated, truncated, info = self.env.step(1)
+        # if firing ended the episode, just reset again
+        if terminated or truncated:
+            obs, info = self.env.reset(**kwargs)
         return obs, info
 
 
@@ -92,11 +114,21 @@ class LifeLossPenaltyWrapper(gym.Wrapper):
             
         return obs, reward, terminated, truncated, info
 
+class ClipRewardEnv(gym.RewardWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    def reward(self, reward):
+        # clip reward to its sign (-1, 0, +1) for stability
+        return np.sign(reward)
+
 def make_env(env_name, frame_stack=4):
     env = gym.make(env_name, frameskip=1)
     env = MaxAndSkipEnv(env)
+    env = FireResetEnv(env)
     env = PreprocessFrame(env)
     env = LifeLossPenaltyWrapper(env)
+    env = ClipRewardEnv(env)
     env = FrameStack(env, frame_stack)
     return env
 

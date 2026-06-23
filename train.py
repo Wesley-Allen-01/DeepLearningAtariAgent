@@ -17,11 +17,20 @@ def train(env, agent, episodes, verbose=False, start=0):
             while not episode_over:
                 action = agent.select_action(observation)
                 new_state, reward, terminated, truncated, info, = env.step(action)
-                total_reward += reward
+                # Log the true game score; the agent still learns from the
+                # clipped `reward` stored in the replay buffer below.
+                total_reward += info.get('raw_reward', reward)
                 episode_over = terminated or truncated
-                agent.memory.push(observation, action, new_state, reward, episode_over)
+                # Store the NEWEST single frame of the PRE-action observation
+                # (FrameStack appends newest last along axis 0, so the newest
+                # frame is observation[-1]) together with the action/reward/done
+                # of the step taken FROM that observation. The buffer
+                # reconstructs the 4-frame state stack (ending at this frame) and
+                # next_state stack (ending at the following frame) at sample time.
+                agent.memory.push(observation[-1], action, reward, episode_over)
                 observation = new_state
-                agent.optimize_model()
+                if agent.steps_done % agent.update_freq == 0:
+                    agent.optimize_model()
             rewards.append(total_reward)
             
             if (episode+1) % 100 == 0:
