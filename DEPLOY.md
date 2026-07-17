@@ -46,14 +46,22 @@ Set `wandb_enabled: false` to run without it. Logged metrics: true game `score`,
 ## 4. Launch detached (survives disconnect)
 ```bash
 tmux new -s train
-uv run python main.py
+until uv run python main.py; do
+  echo "training crashed at $(date); restarting in 10s"
+  sleep 10
+done
 # detach with Ctrl-b then d ; reattach later with: tmux attach -t train
 ```
+
+This retry loop ensures that if the training process crashes — due to OOM, a CUDA error, or a network hiccup — the pod restarts it automatically instead of sitting idle and billing. **This is safe:** on each restart, `main.py` auto-loads `checkpoints/latest.pth` and appends to the same W&B run, so a crash costs at most the training progress since the last checkpoint (saved every 100 episodes).
 
 ## 5. Monitor from your phone
 Open the **W&B mobile app** (or wandb.ai) and pick the `dqn-breakout` project.
 You'll see the reward curve climb live. Random Breakout scores ~1; you should
 see `score_mean_100` rise above that within the first ~1–2M steps.
+
+To get notified if training crashes, enable alerts in W&B: go to **wandb.ai → User Settings → Notifications**
+and turn on "Run crashed" and "Run finished" — these send email and mobile push notifications, so you know immediately if the training stops instead of discovering it hours later.
 
 ## Checkpointing & resume
 - The model, optimizer, `episodes_so_far`, and `steps_done` are saved to
