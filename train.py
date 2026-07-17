@@ -49,7 +49,9 @@ def train(env, agent, episodes, verbose=False, start=0, use_wandb=False):
                 # print("saving model")
                 with open("training_log.log", "a") as f:
                     f.write(f"[{datetime.now()}] -- Episode {episode +1} completed. \n")
-                agent.checkpoint()
+                # snapshot=True lets checkpoint() also drop a numbered ep_{N}.pth
+                # snapshot on save_model_freq-episode milestones.
+                agent.checkpoint(snapshot=True)
 
             if verbose and episode % 10 == 0:
                 print(f"Episode {episode + 1}/{episodes} - Total Reward: {total_reward}")

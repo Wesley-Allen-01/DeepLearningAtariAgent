@@ -18,6 +18,10 @@ agent:
 training:
   num_episodes: 20000
   update_freq: 4
+  # Keep a numbered snapshot (checkpoints/ep_{N}.pth) every this many completed
+  # episodes, in addition to latest.pth, so a run that degrades late can be
+  # rolled back to an earlier policy. Snapshots land on the first regular
+  # (per-100-episode) checkpoint at/after each multiple. Set <=0 to disable.
   save_model_freq: 1000
   # Pickling the ~7GB replay buffer on every checkpoint is slow and disk-heavy.
   # Leave off for long unattended runs; resume just re-warms the buffer.
