@@ -60,6 +60,11 @@ see `score_mean_100` rise above that within the first ~1–2M steps.
   `checkpoints/latest.pth` every 100 episodes.  Writes are **atomic** (written
   to a `.tmp` file then renamed via `os.replace`), so a process killed mid-write
   — e.g. a preempted/reclaimed spot instance — can never corrupt the checkpoint.
+- Every `save_model_freq` completed episodes (default 1000) a **numbered
+  snapshot** `checkpoints/ep_{N}.pth` is written alongside `latest.pth`.  These
+  are never overwritten, so if the policy degrades late in training you can roll
+  back: copy a good `ep_{N}.pth` over `latest.pth` and resume.  Resume itself
+  only ever loads `latest.pth` — snapshots are never auto-loaded.
 - `steps_done` is restored on resume, so epsilon-greedy exploration and the
   target-network update schedule continue exactly where they left off.  There is
   no exploration reset between runs.

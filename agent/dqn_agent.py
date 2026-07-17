@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import random
 import os
 import pickle
+import shutil
 class DQNAgent:
     def __init__(self, config):
         # set proper device for training
@@ -41,6 +42,10 @@ class DQNAgent:
         self.num_actions = config['agent']['num_actions']
         self.episodes_so_far = 0
         self.save_replay_buffer = config['training'].get('save_replay_buffer', False)
+        # Keep a numbered checkpoint snapshot every this many completed episodes
+        # (in addition to latest.pth) so a degraded run can be rolled back. <=0
+        # disables snapshots.
+        self.save_model_freq = config['training'].get('save_model_freq', 1000)
 
         # Most-recent training stats, surfaced for logging (None until first update).
         self.last_loss = None
@@ -54,6 +59,13 @@ class DQNAgent:
         
         
         self.from_checkpoint = self.load_saved_model()
+        # Milestone index of the most recent numbered snapshot. Seeded from the
+        # (possibly restored) episode count so a resume doesn't re-snapshot
+        # milestones already passed. See checkpoint().
+        if self.save_model_freq > 0:
+            self._last_snapshot_milestone = self.episodes_so_far // self.save_model_freq
+        else:
+            self._last_snapshot_milestone = 0
         self.target_net = DQN(input_shape, self.num_actions).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
@@ -141,7 +153,7 @@ class DQNAgent:
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
     
-    def checkpoint(self):
+    def checkpoint(self, snapshot=False):
         os.makedirs("checkpoints", exist_ok=True)
         # Write to a temp file then atomically rename, so a process killed
         # mid-write (e.g. a reclaimed spot instance) can't corrupt latest.pth.
@@ -154,6 +166,19 @@ class DQNAgent:
             'wandb_run_id': self.wandb_run_id,
         }, tmp_path)
         os.replace(tmp_path, "checkpoints/latest.pth")
+        # latest.pth is overwritten forever, but DQN training isn't monotonic:
+        # if the policy degrades late there's otherwise no way back. So every
+        # save_model_freq completed episodes, keep a numbered snapshot next to
+        # latest.pth (never overwritten). We copy the checkpoint we just wrote,
+        # so the snapshot is byte-identical to latest.pth and loads the same way.
+        # Only the regular per-episode checkpoint requests snapshots; the
+        # crash/interrupt paths just refresh latest.pth.
+        if snapshot and self.save_model_freq > 0:
+            milestone = self.episodes_so_far // self.save_model_freq
+            if milestone > self._last_snapshot_milestone:
+                shutil.copy2("checkpoints/latest.pth",
+                             f"checkpoints/ep_{self.episodes_so_far}.pth")
+                self._last_snapshot_milestone = milestone
         # The replay buffer is ~7GB; only persist it when explicitly enabled.
         # Without it, a resumed run simply re-warms the buffer before learning.
         if self.save_replay_buffer:
